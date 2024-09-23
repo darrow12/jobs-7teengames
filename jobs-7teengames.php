@@ -110,10 +110,11 @@ function jobs_7teengames_display_job_title( $content ) {
 add_filter( 'the_content', 'jobs_7teengames_display_job_title' );
 
 // Função para exibir o formulário na página de uma vaga individual
+// Função para exibir o título e o formulário na página de uma vaga individual
 function jobs_7teengames_display_job_form( $content ) {
     if ( is_singular( 'vagas' ) ) {
         // Cria o formulário HTML
-        $form = '<h2>Candidate-se para esta vaga</h2>';
+        $form = '<h2>Candidate-se:</h2>';
         $form .= '<form method="post" action="" enctype="multipart/form-data">';
         $form .= '<p><label for="candidate_name">Nome:</label><br />';
         $form .= '<input type="text" id="candidate_name" name="candidate_name" required></p>';
@@ -126,13 +127,17 @@ function jobs_7teengames_display_job_form( $content ) {
         $form .= '<p><input type="submit" name="submit_job_application" value="Enviar Candidatura" class="custom-submit-button"></p>';
         $form .= '</form>';
 
-        // Exibe o formulário abaixo do conteúdo do job
-        return $content . $form;
+        // Adiciona um contêiner ao redor do conteúdo e do formulário
+        return '<div class="job-container">' .
+               '<div class="job-content">' . $content . '</div>' . 
+               '<div class="job-form">' . $form . '</div>' .
+               '</div>';
     }
 
     return $content;
 }
 add_filter( 'the_content', 'jobs_7teengames_display_job_form' );
+
 
 // Função para processar o envio do formulário e o upload do arquivo
 function jobs_7teengames_handle_form_submission() {

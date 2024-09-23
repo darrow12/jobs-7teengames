@@ -1,3 +1,4 @@
+/* Estilos para o botão personalizado */
 .custom-submit-button {
   background-color: #007CC6 !important;
   color: white !important;
@@ -10,4 +11,38 @@
   outline: none !important;
   border: none !important;
   border-radius: 4px !important;
+}
+
+/* Contêiner geral do conteúdo da vaga e formulário */
+.job-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 48px 0px;
+}
+
+.job-content {
+  flex: 1;
+}
+
+.job-form {
+  flex: 1;
+  padding: 24px;
+  border-radius: 24px;
+  box-shadow: 0px 10px 20px 0px rgba(0,0,0,0.75);
+}
+
+/* Para telas maiores (desktop), o formulário ficará ao lado das informações da vaga */
+@media (min-width: 768px) {
+  .job-container {
+    flex-direction: row; /* No desktop, o formulário fica ao lado */
+  }
+
+  .job-content {
+    flex: 2; /* O conteúdo da vaga ocupa mais espaço */
+  }
+
+  .job-form {
+    flex: 1; /* O formulário ocupa menos espaço */
+  }
 }
