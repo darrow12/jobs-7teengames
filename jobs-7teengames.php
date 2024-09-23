@@ -66,3 +66,33 @@ function jobs_7teengames_register_post_type() {
 }
 
 add_action( 'init', 'jobs_7teengames_register_post_type', 0 );
+
+// Register Custom Taxonomy "Setor"
+function jobs_7teengames_register_taxonomy() {
+    $labels = array(
+        'name'              => _x( 'Setores', 'taxonomy general name', 'jobs-7teengames' ),
+        'singular_name'     => _x( 'Setor', 'taxonomy singular name', 'jobs-7teengames' ),
+        'search_items'      => __( 'Buscar Setores', 'jobs-7teengames' ),
+        'all_items'         => __( 'Todos os Setores', 'jobs-7teengames' ),
+        'parent_item'       => __( 'Setor Pai', 'jobs-7teengames' ),
+        'parent_item_colon' => __( 'Setor Pai:', 'jobs-7teengames' ),
+        'edit_item'         => __( 'Editar Setor', 'jobs-7teengames' ),
+        'update_item'       => __( 'Atualizar Setor', 'jobs-7teengames' ),
+        'add_new_item'      => __( 'Adicionar Novo Setor', 'jobs-7teengames' ),
+        'new_item_name'     => __( 'Novo Nome de Setor', 'jobs-7teengames' ),
+        'menu_name'         => __( 'Setor', 'jobs-7teengames' ),
+    );
+
+    $args = array(
+        'hierarchical'      => true, // Como categorias, com hierarquia
+        'labels'            => $labels,
+        'show_ui'           => true,
+        'show_admin_column' => true,
+        'query_var'         => true,
+        'rewrite'           => array( 'slug' => 'setor' ),
+    );
+
+    register_taxonomy( 'setor', array( 'vagas' ), $args );
+}
+
+add_action( 'init', 'jobs_7teengames_register_taxonomy' );
