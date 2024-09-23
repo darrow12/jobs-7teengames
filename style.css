@@ -1,0 +1,13 @@
+.custom-submit-button {
+  background-color: #007CC6 !important;
+  color: white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 16px !important;
+  font-weight: 600 !important;
+  font-family: 'Poppins', sans-serif !important;
+  outline: none !important;
+  border: none !important;
+  border-radius: 4px !important;
+}

@@ -108,3 +108,77 @@ function jobs_7teengames_display_job_title( $content ) {
 }
 
 add_filter( 'the_content', 'jobs_7teengames_display_job_title' );
+
+// Função para exibir o formulário na página de uma vaga individual
+function jobs_7teengames_display_job_form( $content ) {
+    if ( is_singular( 'vagas' ) ) {
+        // Cria o formulário HTML
+        $form = '<h2>Candidate-se para esta vaga</h2>';
+        $form .= '<form method="post" action="" enctype="multipart/form-data">';
+        $form .= '<p><label for="candidate_name">Nome:</label><br />';
+        $form .= '<input type="text" id="candidate_name" name="candidate_name" required></p>';
+        $form .= '<p><label for="candidate_email">Email:</label><br />';
+        $form .= '<input type="email" id="candidate_email" name="candidate_email" required></p>';
+        $form .= '<p><label for="candidate_phone">Telefone</label><br />';
+        $form .= '<input type="number" id="candidate_phone" name="candidate_phone" required></p>';
+        $form .= '<p><label for="candidate_cv">Currículo (PDF):</label><br />';
+        $form .= '<input type="file" id="candidate_cv" name="candidate_cv" accept=".pdf" required></p>';
+        $form .= '<p><input type="submit" name="submit_job_application" value="Enviar Candidatura" class="custom-submit-button"></p>';
+        $form .= '</form>';
+
+        // Exibe o formulário abaixo do conteúdo do job
+        return $content . $form;
+    }
+
+    return $content;
+}
+add_filter( 'the_content', 'jobs_7teengames_display_job_form' );
+
+// Função para processar o envio do formulário e o upload do arquivo
+function jobs_7teengames_handle_form_submission() {
+    if ( isset( $_POST['submit_job_application'] ) && isset( $_FILES['candidate_cv'] ) ) {
+        // Sanitiza os dados do formulário
+        $name    = sanitize_text_field( $_POST['candidate_name'] );
+        $email   = sanitize_email( $_POST['candidate_email'] );
+        $phone   = sanitize_text_field( $_POST['candidate_phone'] );
+
+        // Processa o arquivo enviado (currículo em PDF)
+        if ( ! function_exists( 'wp_handle_upload' ) ) {
+            require_once( ABSPATH . 'wp-admin/includes/file.php' );
+        }
+
+        // Configurações para o upload do arquivo
+        $uploadedfile = $_FILES['candidate_cv'];
+        $upload_overrides = array( 'test_form' => false, 'mimes' => array( 'pdf' => 'application/pdf' ) );
+
+        // Faz o upload do arquivo
+        $movefile = wp_handle_upload( $uploadedfile, $upload_overrides );
+
+        if ( $movefile && ! isset( $movefile['error'] ) ) {
+            // Upload bem-sucedido
+            $cv_url = $movefile['url']; // URL do arquivo PDF enviado
+
+            // Configura o e-mail para o administrador do site
+            $admin_email = get_option( 'admin_email' );
+            $subject     = 'Nova candidatura para a vaga: ' . get_the_title();
+            $body        = "Nome: $name\nEmail: $email\nTelefone: $phone\n\nO currículo foi anexado como PDF:\n$cv_url";
+            $headers     = array( 'Content-Type: text/plain; charset=UTF-8' );
+
+            // Envia o e-mail
+            wp_mail( $admin_email, $subject, $body, $headers );
+
+            // Exibe uma mensagem de sucesso após o envio do formulário
+            echo '<p>Obrigado! Sua candidatura foi enviada com sucesso.</p>';
+        } else {
+            // Tratamento de erros durante o upload
+            echo '<p>Ocorreu um erro ao enviar o currículo: ' . $movefile['error'] . '</p>';
+        }
+    }
+}
+add_action( 'wp', 'jobs_7teengames_handle_form_submission' );
+
+function jobs_7teengames_enqueue_styles() {
+    wp_enqueue_style( 'jobs-7teengames-styles', plugin_dir_url( __FILE__ ) . 'style.css' );
+}
+
+add_action( 'wp_enqueue_scripts', 'jobs_7teengames_enqueue_styles' );
