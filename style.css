@@ -38,6 +38,7 @@
 /* Para telas maiores (desktop), o formulário ficará ao lado das informações da vaga */
 @media (min-width: 1024px) {
   .job-container {
+    align-items: start;
     flex-direction: row; /* No desktop, o formulário fica ao lado */
   }
 
