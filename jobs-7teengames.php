@@ -109,10 +109,15 @@ function jobs_7teengames_display_job_title( $content ) {
 
 add_filter( 'the_content', 'jobs_7teengames_display_job_title' );
 
-// Função para exibir o formulário na página de uma vaga individual
-// Função para exibir o título e o formulário na página de uma vaga individual
+// Função para exibir o formulário de candidatura na página de uma vaga individual
 function jobs_7teengames_display_job_form( $content ) {
     if ( is_singular( 'vagas' ) ) {
+        global $post;
+        
+        // Recupera perguntas customizadas salvas
+        $custom_questions = get_post_meta( $post->ID, '_custom_questions', true );
+        $questions = !empty( $custom_questions ) ? explode( "\n", $custom_questions ) : [];
+
         // Cria o formulário HTML
         $form = '<h2>Candidate-se:</h2>';
         $form .= '<form method="post" action="" enctype="multipart/form-data">';
@@ -124,12 +129,21 @@ function jobs_7teengames_display_job_form( $content ) {
         $form .= '<input type="number" id="candidate_phone" name="candidate_phone" required></p>';
         $form .= '<p><label for="candidate_cv">Currículo (PDF):</label><br />';
         $form .= '<input type="file" id="candidate_cv" name="candidate_cv" accept=".pdf" required></p>';
+
+        // Adiciona perguntas customizadas ao formulário
+        if ( !empty( $questions ) ) {
+            foreach ( $questions as $index => $question ) {
+                $form .= '<p><label for="custom_question_' . $index . '">' . esc_html( trim( $question ) ) . ':</label><br />';
+                $form .= '<input type="text" id="custom_question_' . $index . '" name="custom_questions[' . $index . ']" required></p>';
+            }
+        }
+
         $form .= '<p><input type="submit" name="submit_job_application" value="Enviar Candidatura" class="custom-submit-button"></p>';
         $form .= '</form>';
 
         // Adiciona um contêiner ao redor do conteúdo e do formulário
         return '<div class="job-container">' .
-               '<div class="job-content">' . $content . '</div>' . 
+               '<div class="job-content">' . $content . '</div>' .
                '<div class="job-form">' . $form . '</div>' .
                '</div>';
     }
@@ -138,7 +152,6 @@ function jobs_7teengames_display_job_form( $content ) {
 }
 add_filter( 'the_content', 'jobs_7teengames_display_job_form' );
 
-
 // Função para processar o envio do formulário e o upload do arquivo
 function jobs_7teengames_handle_form_submission() {
     if ( isset( $_POST['submit_job_application'] ) && isset( $_FILES['candidate_cv'] ) ) {
@@ -146,6 +159,14 @@ function jobs_7teengames_handle_form_submission() {
         $name    = sanitize_text_field( $_POST['candidate_name'] );
         $email   = sanitize_email( $_POST['candidate_email'] );
         $phone   = sanitize_text_field( $_POST['candidate_phone'] );
+
+        // Processa as respostas das perguntas customizadas, se existirem
+        $custom_answers = '';
+        if ( isset( $_POST['custom_questions'] ) && is_array( $_POST['custom_questions'] ) ) {
+            foreach ( $_POST['custom_questions'] as $index => $answer ) {
+                $custom_answers .= 'Pergunta ' . ($index + 1) . ': ' . sanitize_text_field( $answer ) . "\n";
+            }
+        }
 
         // Processa o arquivo enviado (currículo em PDF)
         if ( ! function_exists( 'wp_handle_upload' ) ) {
@@ -166,7 +187,8 @@ function jobs_7teengames_handle_form_submission() {
             // Configura o e-mail para o administrador do site
             $admin_email = get_option( 'admin_email' );
             $subject     = 'Nova candidatura para a vaga: ' . get_the_title();
-            $body        = "Nome: $name\nEmail: $email\nTelefone: $phone\n\nO currículo foi anexado como PDF:\n$cv_url";
+            $body        = "Nome: $name\nEmail: $email\nTelefone: $phone\n\nO currículo foi anexado como PDF:\n$cv_url\n\n";
+            $body       .= "Respostas às perguntas:\n" . $custom_answers;
             $headers     = array( 'Content-Type: text/plain; charset=UTF-8' );
 
             // Envia o e-mail
@@ -187,3 +209,36 @@ function jobs_7teengames_enqueue_styles() {
 }
 
 add_action( 'wp_enqueue_scripts', 'jobs_7teengames_enqueue_styles' );
+
+// Adiciona a metabox de perguntas customizadas no editor de vagas
+function jobs_7teengames_add_custom_metabox() {
+    add_meta_box(
+        'custom_questions_metabox',       // ID
+        'Perguntas Customizadas',         // Título
+        'jobs_7teengames_render_metabox', // Callback para exibir o conteúdo
+        'vagas',                          // Tipo de post (vagas)
+        'normal',                         // Contexto (normal)
+        'high'                            // Prioridade
+    );
+}
+add_action( 'add_meta_boxes', 'jobs_7teengames_add_custom_metabox' );
+
+// Renderiza a metabox no editor de vagas
+function jobs_7teengames_render_metabox( $post ) {
+    // Recuperar perguntas já salvas, se existirem
+    $custom_questions = get_post_meta( $post->ID, '_custom_questions', true );
+
+    // Exibir a área para adicionar as perguntas
+    echo '<label for="custom_questions">Adicione perguntas customizadas para esta vaga:</label><br />';
+    echo '<textarea id="custom_questions" name="custom_questions" rows="5" cols="50" placeholder="Digite uma pergunta por linha...">' . esc_textarea( $custom_questions ) . '</textarea>';
+}
+
+// Salva as perguntas customizadas ao salvar a vaga
+function jobs_7teengames_save_custom_questions( $post_id ) {
+    // Verifica se o campo custom_questions foi enviado
+    if ( isset( $_POST['custom_questions'] ) ) {
+        // Sanitiza e salva as perguntas no banco de dados como metadados do post
+        update_post_meta( $post_id, '_custom_questions', sanitize_textarea_field( $_POST['custom_questions'] ) );
+    }
+}
+add_action( 'save_post', 'jobs_7teengames_save_custom_questions' );
