@@ -96,3 +96,15 @@ function jobs_7teengames_register_taxonomy() {
 }
 
 add_action( 'init', 'jobs_7teengames_register_taxonomy' );
+
+// Add Job Title to Single Job Page
+function jobs_7teengames_display_job_title( $content ) {
+    if ( is_singular( 'vagas' ) ) {
+        $title = '<h1 class="job-title">' . get_the_title() . '</h1>';
+        return $title . $content;
+    }
+
+    return $content;
+}
+
+add_filter( 'the_content', 'jobs_7teengames_display_job_title' );
