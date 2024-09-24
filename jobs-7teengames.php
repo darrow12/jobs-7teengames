@@ -538,3 +538,112 @@ function jobs_7teengames_enqueue_styles_and_scripts() {
     ' );
 }
 add_action( 'wp_enqueue_scripts', 'jobs_7teengames_enqueue_styles_and_scripts' );
+
+function jobs_7teengames_list_vagas_pt_shortcode() {
+    return jobs_7teengames_list_vagas_template('Nenhuma vaga encontrada no momento.', 'Ver detalhes');
+}
+add_shortcode( 'listar_vagas_pt', 'jobs_7teengames_list_vagas_pt_shortcode' );
+
+function jobs_7teengames_list_vagas_en_shortcode() {
+    return jobs_7teengames_list_vagas_template('No jobs available at the moment.', 'See details');
+}
+add_shortcode( 'listar_vagas_en', 'jobs_7teengames_list_vagas_en_shortcode' );
+
+function jobs_7teengames_list_vagas_es_shortcode() {
+    return jobs_7teengames_list_vagas_template('No hay vacantes disponibles en este momento.', 'Ver detalles');
+}
+add_shortcode( 'listar_vagas_es', 'jobs_7teengames_list_vagas_es_shortcode' );
+
+function jobs_7teengames_list_vagas_template($no_vacancy_message, $see_details_text) {
+    $args = array(
+        'post_type' => 'vagas',
+        'posts_per_page' => -1,
+    );
+
+    $vagas = new WP_Query( $args );
+
+    if ( $vagas->have_posts() ) {
+        $output = '<style>
+            .vaga-item {
+                border: 1px solid #242424;
+                padding: 15px;
+                margin-bottom: 10px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                border-radius: 18px;
+            }
+            .vaga-detalhes {
+                flex-grow: 1;
+            }
+            .vaga-botao {
+                flex-shrink: 0;
+                margin-top: 10px;
+            }
+            
+            @media (max-width: 768px) {
+                .vaga-item {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                .vaga-botao {
+                    width: 100%;
+                    text-align: center;
+                }
+                .vaga-botao a {
+                    display: inline-block;
+                    width: 100%;
+                    text-align: center;
+                }
+            }
+        </style>';
+
+        $output .= '<div class="vagas-listagem">';
+
+        while ( $vagas->have_posts() ) {
+            $vagas->the_post();
+
+            $vaga_title = get_the_title();
+
+            $categorias = get_the_terms( get_the_ID(), 'category' );
+            $categoria_lista = '';
+
+            if ( $categorias && ! is_wp_error( $categorias ) ) {
+                $categoria_nomes = array();
+                foreach ( $categorias as $categoria ) {
+                    if ( function_exists( 'pll_get_term' ) || function_exists( 'icl_object_id' ) ) {
+                        $categoria_id = (function_exists('pll_get_term')) ? pll_get_term( $categoria->term_id ) : icl_object_id( $categoria->term_id, 'category', true );
+                        $categoria_traduzida = get_term( $categoria_id )->name;
+                        $categoria_nomes[] = $categoria_traduzida;
+                    } else {
+                        $categoria_nomes[] = $categoria->name;
+                    }
+                }
+                $categoria_lista = implode( ', ', $categoria_nomes );
+            } else {
+                $categoria_lista = 'Nenhuma categoria disponível';
+            }
+
+            $vaga_link = get_permalink();
+
+            $output .= '<div class="vaga-item">';
+            $output .= '<div class="vaga-detalhes">';
+            $output .= '<h2 style="color: #007CC6;">' . esc_html( $vaga_title ) . '</h2>';
+            $output .= '<p>' . esc_html( $categoria_lista ) . '</p>';
+            $output .= '</div>';
+            $output .= '<div class="vaga-botao">';
+            $output .= '<a href="' . esc_url( $vaga_link ) . '" style="padding: 10px 20px; background-color: #007CC6; color: white; text-decoration: none; border-radius: 5px;">' . esc_html( $see_details_text ) . '</a>';
+            $output .= '</div>';
+            $output .= '</div>';
+        }
+
+        wp_reset_postdata();
+
+        $output .= '</div>';
+    } else {
+        $output = '<p>' . esc_html( $no_vacancy_message ) . '</p>';
+    }
+
+    return $output;
+}
