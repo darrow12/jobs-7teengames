@@ -183,15 +183,23 @@ function jobs_7teengames_handle_form_submission() {
 
         // Sanitiza os dados do formulário
         $name    = sanitize_text_field( $_POST['candidate_name'] );
-        $email   = sanitize_email( $_POST['candidate_email'] );
+        $email   = sanitize_text_field( $_POST['candidate_email'] );  // Usamos sanitize_text_field para aceitar qualquer formato de email
         $phone   = sanitize_text_field( $_POST['candidate_phone'] );
         $vaga_id = get_the_ID(); // ID da vaga atual
+
+        // Recupera as perguntas customizadas salvas no post da vaga
+        $custom_questions = get_post_meta( $vaga_id, '_custom_questions', true );
+        $questions = !empty( $custom_questions ) ? explode( "\n", $custom_questions ) : [];
 
         // Processa as respostas das perguntas customizadas
         $custom_answers = '';
         if ( isset( $_POST['custom_questions'] ) && is_array( $_POST['custom_questions'] ) ) {
             foreach ( $_POST['custom_questions'] as $index => $answer ) {
-                $custom_answers .= 'Pergunta ' . ($index + 1) . ': ' . sanitize_text_field( $answer ) . "\n";
+                if ( isset( $questions[$index] ) ) { // Garantimos que a pergunta existe
+                    $question = sanitize_text_field( $questions[$index] ); // Recuperamos a pergunta correta
+                    $answer = sanitize_text_field( $answer ); // Sanitizamos a resposta
+                    $custom_answers .= $question . ': ' . $answer . "\n"; // Formato Pergunta: Resposta
+                }
             }
         }
 
@@ -220,7 +228,7 @@ function jobs_7teengames_handle_form_submission() {
                     'perguntas_respostas' => $custom_answers,
                     'data_envio' => current_time( 'mysql' ) // Garante que a data e hora de envio sejam salvas corretamente
                 ),
-                array( '%s', '%s', '%s', '%s', '%d', '%s', '%s' ) // Define os formatos dos campos (string, string, string, etc)
+                array( '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
             );
 
             if ( $inserted ) {
@@ -367,41 +375,41 @@ function jobs_7teengames_render_settings_page() {
     echo '</div>';
 }
 
-// Função para criar a tabela 'candidaturas' ao ativar o plugin
+// Função para criar/atualizar a tabela 'candidaturas' ao ativar o plugin
 function jobs_7teengames_create_table() {
     global $wpdb;
-    $table_name = $wpdb->prefix . 'candidaturas'; // Nome da tabela com prefixo
-    
-    // Verificar se a tabela já existe
-    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-        $charset_collate = $wpdb->get_charset_collate();
+    $table_name = $wpdb->prefix . 'candidaturas'; // Nome da tabela com prefixo correto
+    $charset_collate = $wpdb->get_charset_collate(); // Define o charset para a tabela
 
-        $sql = "CREATE TABLE $table_name (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            nome varchar(255) NOT NULL,
-            email varchar(255) NOT NULL,
-            telefone varchar(20) NOT NULL,
-            curriculo_url varchar(255) NOT NULL,
-            vaga_id mediumint(9) NOT NULL,
-            data_envio datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            PRIMARY KEY  (id)
-        ) $charset_collate;";
+    // Definir a consulta SQL para criar/atualizar a tabela
+    $sql = "CREATE TABLE $table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        nome varchar(255) NOT NULL,
+        email varchar(255) NOT NULL,
+        telefone varchar(20) NOT NULL,
+        curriculo_url varchar(255) NOT NULL,
+        vaga_id mediumint(9) NOT NULL,
+        perguntas_respostas text NOT NULL,
+        data_envio datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
 
-        // Chamar dbDelta para garantir a criação da tabela
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
+    // Inclui o arquivo necessário para executar dbDelta
+    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 
-        // Verificação se a tabela foi criada com sucesso
-        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name) {
-            error_log("Tabela de candidaturas criada com sucesso.");
-        } else {
-            error_log("Erro ao criar a tabela de candidaturas.");
-        }
+    // Executa o dbDelta para criar ou atualizar a tabela
+    dbDelta( $sql );
+
+    // Verificar se a tabela foi criada corretamente
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) != $table_name ) {
+        error_log( "Erro: A tabela $table_name não foi criada corretamente." );
+    } else {
+        error_log( "Sucesso: A tabela $table_name foi criada ou atualizada." );
     }
 }
 
 // Hook para ativar a função de criação da tabela ao ativar o plugin
-register_activation_hook(__FILE__, 'jobs_7teengames_create_table');
+register_activation_hook( __FILE__, 'jobs_7teengames_create_table' );
 
 // Adiciona o submenu "Candidaturas" ao menu de "Vagas"
 function jobs_7teengames_add_submenu() {
@@ -427,7 +435,7 @@ function jobs_7teengames_render_candidaturas_page() {
     echo '<div class="wrap">';
     echo '<h1>Candidaturas Recebidas</h1>';
     echo '<table class="widefat fixed" cellspacing="0">';
-    echo '<thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Currículo</th><th>Perguntas e Respostas</th><th>Data de Envio</th></tr></thead>';
+    echo '<thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Currículo</th><th>Perguntas Customizáveis</th><th>Data de Envio</th></tr></thead>';
     echo '<tbody>';
 
     foreach ( $results as $row ) {
@@ -436,15 +444,115 @@ function jobs_7teengames_render_candidaturas_page() {
         echo '<td>' . esc_html( $row->email ) . '</td>';
         echo '<td>' . esc_html( $row->telefone ) . '</td>';
         echo '<td><a href="' . esc_url( $row->curriculo_url ) . '" target="_blank">Download</a></td>';
-        echo '<td>' . nl2br( esc_html( $row->perguntas_respostas ) ) . '</td>';
+
+        // Verificar se há perguntas customizadas
+        if ( ! empty( $row->perguntas_respostas ) ) {
+            // Botão para ver perguntas customizadas
+            echo '<td><button class="button view-questions" data-questions="' . esc_attr( $row->perguntas_respostas ) . '">Ver Perguntas</button></td>';
+        } else {
+            // Se não houver perguntas customizadas, exibe um traço ou espaço vazio
+            echo '<td>—</td>';
+        }
+        
         echo '<td>' . esc_html( $row->data_envio ) . '</td>';
         echo '</tr>';
     }
 
     echo '</tbody>';
     echo '</table>';
+    
+    // Modal que será exibido com as perguntas e respostas
+    echo '<div id="questionsModal" style="display:none;">';
+    echo '<div class="modal-content">';
+    echo '<span id="closeModal" class="close">&times;</span>';
+    echo '<div id="questionsContent"></div>';
+    echo '</div>';
+    echo '</div>';
     echo '</div>';
 }
+
+// Função para adicionar o script JavaScript e o CSS para o modal
+function jobs_7teengames_enqueue_admin_scripts() {
+    ?>
+    <style>
+        /* Estilos para o modal */
+        #questionsModal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%;
+            position: relative;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+
+    <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            // Quando o botão "Ver Perguntas Customizáveis" for clicado
+            $('.view-questions').on('click', function() {
+                // Recupera as perguntas e respostas do atributo data
+                var questionsData = $(this).data('questions');
+
+                // Separar perguntas e respostas por linha
+                var questionsArray = questionsData.split("\n");
+
+                // Cria o HTML para exibir perguntas e respostas formatadas
+                var formattedQuestions = '';
+                $.each(questionsArray, function(index, question) {
+                    if (question.trim() !== '') {
+                        formattedQuestions += '<p>' + question + '</p>';
+                    }
+                });
+
+                // Define o conteúdo no modal
+                $('#questionsContent').html(formattedQuestions);
+
+                // Exibe o modal
+                $('#questionsModal').fadeIn();
+            });
+
+            // Quando o botão de fechar for clicado
+            $('#closeModal').on('click', function() {
+                $('#questionsModal').fadeOut();
+            });
+
+            // Quando o usuário clicar fora do modal, feche o modal
+            $(window).on('click', function(event) {
+                if (event.target.id === 'questionsModal') {
+                    $('#questionsModal').fadeOut();
+                }
+            });
+        });
+    </script>
+    <?php
+}
+add_action( 'admin_footer', 'jobs_7teengames_enqueue_admin_scripts' );
 
 // Inicia a sessão, se ainda não estiver ativa
 function jobs_7teengames_start_session() {
