@@ -429,17 +429,37 @@ function jobs_7teengames_render_candidaturas_page() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'candidaturas'; // Nome da tabela de candidaturas
 
+    // Verifica se o formulário de exclusão foi submetido
+    if ( isset( $_POST['delete_selected'] ) && isset( $_POST['selected_candidaturas'] ) ) {
+        $selected_ids = $_POST['selected_candidaturas'];
+        foreach ( $selected_ids as $id ) {
+            $id = intval( $id );
+            $wpdb->delete( $table_name, array( 'id' => $id ), array( '%d' ) );
+        }
+        echo '<div class="notice notice-success is-dismissible"><p>Candidaturas deletadas com sucesso.</p></div>';
+    }
+
     // Busca todas as candidaturas
     $results = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY data_envio DESC" );
 
     echo '<div class="wrap">';
     echo '<h1>Candidaturas Recebidas</h1>';
+
+    // Formulário para deletar candidaturas selecionadas
+    echo '<form method="post" action="">';
+
+    // Botão para deletar selecionados, posicionado à direita
+    echo '<div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">';
+    echo '<input type="submit" name="delete_selected" value="Deletar Selecionados" class="button button-danger" style="background-color: red; color: white; border-color: red;">';
+    echo '</div>';
+
     echo '<table class="widefat fixed" cellspacing="0">';
-    echo '<thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Currículo</th><th>Perguntas Customizáveis</th><th>Data de Envio</th></tr></thead>';
+    echo '<thead><tr><th><input type="checkbox" id="select_all"></th><th>Nome</th><th>Email</th><th>Telefone</th><th>Currículo</th><th>Perguntas Customizáveis</th><th>Data de Envio</th></tr></thead>';
     echo '<tbody>';
 
     foreach ( $results as $row ) {
         echo '<tr>';
+        echo '<td><input type="checkbox" name="selected_candidaturas[]" value="' . esc_attr( $row->id ) . '"></td>';
         echo '<td>' . esc_html( $row->nome ) . '</td>';
         echo '<td>' . esc_html( $row->email ) . '</td>';
         echo '<td>' . esc_html( $row->telefone ) . '</td>';
@@ -460,18 +480,20 @@ function jobs_7teengames_render_candidaturas_page() {
 
     echo '</tbody>';
     echo '</table>';
-    
-    // Modal que será exibido com as perguntas e respostas
+
+    echo '</form>'; // Fecha o formulário
+    echo '</div>';
+
+    // Modal para ver perguntas customizadas
     echo '<div id="questionsModal" style="display:none;">';
     echo '<div class="modal-content">';
     echo '<span id="closeModal" class="close">&times;</span>';
     echo '<div id="questionsContent"></div>';
     echo '</div>';
     echo '</div>';
-    echo '</div>';
 }
 
-// Função para adicionar o script JavaScript e o CSS para o modal
+// Função para adicionar o script JavaScript e o CSS para o modal e checkbox de seleção
 function jobs_7teengames_enqueue_admin_scripts() {
     ?>
     <style>
@@ -547,6 +569,11 @@ function jobs_7teengames_enqueue_admin_scripts() {
                 if (event.target.id === 'questionsModal') {
                     $('#questionsModal').fadeOut();
                 }
+            });
+
+            // Função para selecionar ou desmarcar todos os checkboxes
+            $('#select_all').on('click', function() {
+                $('input[type="checkbox"]').prop('checked', this.checked);
             });
         });
     </script>
