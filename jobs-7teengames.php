@@ -172,6 +172,15 @@ function jobs_7teengames_handle_form_submission() {
         global $wpdb;
         $table_name = $wpdb->prefix . 'candidaturas'; // Nome da tabela de candidaturas
 
+        // Verifica se a tabela existe
+        if( $wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name ) {
+            // Caso a tabela não exista, exibe um erro
+            $_SESSION['job_application_status'] = 'error';
+            $_SESSION['job_application_error'] = 'Tabela de candidaturas não encontrada.';
+            wp_redirect( get_permalink( get_the_ID() ) );
+            exit;
+        }
+
         // Sanitiza os dados do formulário
         $name    = sanitize_text_field( $_POST['candidate_name'] );
         $email   = sanitize_email( $_POST['candidate_email'] );
@@ -200,7 +209,7 @@ function jobs_7teengames_handle_form_submission() {
             $cv_url = $movefile['url']; // URL do arquivo PDF enviado
 
             // Salvar candidatura no banco de dados
-            $wpdb->insert(
+            $inserted = $wpdb->insert(
                 $table_name,
                 array(
                     'nome' => $name,
@@ -208,23 +217,36 @@ function jobs_7teengames_handle_form_submission() {
                     'telefone' => $phone,
                     'curriculo_url' => $cv_url,
                     'vaga_id' => $vaga_id,
-                    'perguntas_respostas' => $custom_answers
-                )
+                    'perguntas_respostas' => $custom_answers,
+                    'data_envio' => current_time( 'mysql' ) // Garante que a data e hora de envio sejam salvas corretamente
+                ),
+                array( '%s', '%s', '%s', '%s', '%d', '%s', '%s' ) // Define os formatos dos campos (string, string, string, etc)
             );
 
-            // Enviar e-mail
-            $admin_email = get_option( 'jobs_7teengames_email', 'paulobaronedev@gmail.com' );
-            $subject     = 'Nova candidatura para a vaga: ' . get_the_title();
-            $body        = "Nome: $name\nEmail: $email\nTelefone: $phone\n\nO currículo foi anexado como PDF:\n$cv_url\n\n";
-            $body       .= "Respostas às perguntas:\n" . $custom_answers;
-            $headers     = array( 'Content-Type: text/plain; charset=UTF-8' );
+            if ( $inserted ) {
+                // Enviar e-mail
+                $admin_email = get_option( 'jobs_7teengames_email', 'paulobaronedev@gmail.com' );
+                $subject     = 'Nova candidatura para a vaga: ' . get_the_title();
+                $body        = "Nome: $name\nEmail: $email\nTelefone: $phone\n\nO currículo foi anexado como PDF:\n$cv_url\n\n";
+                $body       .= "Respostas às perguntas:\n" . $custom_answers;
+                $headers     = array( 'Content-Type: text/plain; charset=UTF-8' );
 
-            wp_mail( $admin_email, $subject, $body, $headers );
+                wp_mail( $admin_email, $subject, $body, $headers );
 
-            // Define mensagem de sucesso na sessão e redireciona
-            $_SESSION['job_application_status'] = 'success';
-            wp_redirect( get_permalink( $vaga_id ) );
-            exit;
+                // Define mensagem de sucesso na sessão e redireciona
+                $_SESSION['job_application_status'] = 'success';
+                wp_redirect( get_permalink( $vaga_id ) );
+                exit;
+            } else {
+                // Log de erros do WordPress
+                error_log( 'Erro ao inserir no banco de dados: ' . $wpdb->last_error );
+
+                // Erro ao inserir no banco de dados
+                $_SESSION['job_application_status'] = 'error';
+                $_SESSION['job_application_error'] = 'Erro ao salvar a candidatura no banco de dados: ' . $wpdb->last_error;
+                wp_redirect( get_permalink( $vaga_id ) );
+                exit;
+            }
 
         } else {
             // Define mensagem de erro na sessão e redireciona
@@ -256,22 +278,53 @@ function jobs_7teengames_add_custom_metabox() {
 }
 add_action( 'add_meta_boxes', 'jobs_7teengames_add_custom_metabox' );
 
-// Renderiza a metabox no editor de vagas
+// Renderiza a metabox no editor de vagas com campos dinâmicos
 function jobs_7teengames_render_metabox( $post ) {
     // Recuperar perguntas já salvas, se existirem
     $custom_questions = get_post_meta( $post->ID, '_custom_questions', true );
+    $questions = !empty( $custom_questions ) ? explode( "\n", $custom_questions ) : [];
 
     // Exibir a área para adicionar as perguntas
-    echo '<label for="custom_questions">Adicione perguntas customizadas para esta vaga:</label><br />';
-    echo '<textarea id="custom_questions" name="custom_questions" rows="5" cols="50" placeholder="Digite uma pergunta por linha...">' . esc_textarea( $custom_questions ) . '</textarea>';
+    echo '<div id="custom-questions-container">';
+    
+    if (!empty($questions)) {
+        foreach ($questions as $index => $question) {
+            echo '<div class="custom-question">';
+            echo '<input type="text" name="custom_questions[]" value="' . esc_attr($question) . '" placeholder="Digite a pergunta..." style="width:80%;" />';
+            echo '<button type="button" class="button remove-question">Remover</button>';
+            echo '</div>';
+        }
+    }
+    
+    echo '</div>';
+    
+    echo '<button type="button" id="add-question" class="button">Adicionar Pergunta</button>';
+    
+    // Adiciona o script para lidar com a adição e remoção de perguntas
+    echo '
+    <script>
+    jQuery(document).ready(function($) {
+        $("#add-question").on("click", function() {
+            var questionField = `<div class="custom-question">
+                                    <input type="text" name="custom_questions[]" placeholder="Digite a pergunta..." style="width:80%;" />
+                                    <button type="button" class="button remove-question">Remover</button>
+                                </div>`;
+            $("#custom-questions-container").append(questionField);
+        });
+        
+        $(document).on("click", ".remove-question", function() {
+            $(this).parent().remove();
+        });
+    });
+    </script>';
 }
 
 // Salva as perguntas customizadas ao salvar a vaga
 function jobs_7teengames_save_custom_questions( $post_id ) {
-    // Verifica se o campo custom_questions foi enviado
-    if ( isset( $_POST['custom_questions'] ) ) {
-        // Sanitiza e salva as perguntas no banco de dados como metadados do post
-        update_post_meta( $post_id, '_custom_questions', sanitize_textarea_field( $_POST['custom_questions'] ) );
+    if ( isset( $_POST['custom_questions'] ) && is_array( $_POST['custom_questions'] ) ) {
+        // Junta as perguntas em uma string separada por quebras de linha
+        $custom_questions = implode( "\n", array_map( 'sanitize_text_field', $_POST['custom_questions'] ) );
+        update_post_meta( $post_id, '_custom_questions', $custom_questions );
     }
 }
 add_action( 'save_post', 'jobs_7teengames_save_custom_questions' );
@@ -314,30 +367,41 @@ function jobs_7teengames_render_settings_page() {
     echo '</div>';
 }
 
-// Função para criar a tabela de candidaturas
-function jobs_7teengames_create_candidaturas_table() {
+// Função para criar a tabela 'candidaturas' ao ativar o plugin
+function jobs_7teengames_create_table() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'candidaturas'; // Nome da tabela com prefixo
+    
+    // Verificar se a tabela já existe
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+        $charset_collate = $wpdb->get_charset_collate();
 
-    $charset_collate = $wpdb->get_charset_collate();
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            nome varchar(255) NOT NULL,
+            email varchar(255) NOT NULL,
+            telefone varchar(20) NOT NULL,
+            curriculo_url varchar(255) NOT NULL,
+            vaga_id mediumint(9) NOT NULL,
+            data_envio datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id)
+        ) $charset_collate;";
 
-    // SQL para criar a tabela de candidaturas
-    $sql = "CREATE TABLE IF NOT EXISTS $table_name (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        nome varchar(255) NOT NULL,
-        email varchar(255) NOT NULL,
-        telefone varchar(20) NOT NULL,
-        curriculo_url varchar(255) NOT NULL,
-        vaga_id mediumint(9) NOT NULL,
-        perguntas_respostas text NOT NULL,
-        data_envio datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        PRIMARY KEY (id)
-    ) $charset_collate;";
+        // Chamar dbDelta para garantir a criação da tabela
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
 
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    dbDelta($sql);
+        // Verificação se a tabela foi criada com sucesso
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name) {
+            error_log("Tabela de candidaturas criada com sucesso.");
+        } else {
+            error_log("Erro ao criar a tabela de candidaturas.");
+        }
+    }
 }
-register_activation_hook(__FILE__, 'jobs_7teengames_create_candidaturas_table');
+
+// Hook para ativar a função de criação da tabela ao ativar o plugin
+register_activation_hook(__FILE__, 'jobs_7teengames_create_table');
 
 // Adiciona o submenu "Candidaturas" ao menu de "Vagas"
 function jobs_7teengames_add_submenu() {
