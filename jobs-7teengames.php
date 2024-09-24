@@ -60,40 +60,12 @@ function jobs_7teengames_register_post_type() {
         'exclude_from_search'   => false,
         'publicly_queryable'    => true,
         'capability_type'       => 'post',
+        'rewrite'               => array( 'slug' => 'jobs', 'with_front' => false ),
     );
     register_post_type( 'vagas', $args );
 }
 
 add_action( 'init', 'jobs_7teengames_register_post_type', 0 );
-
-function jobs_7teengames_register_taxonomy() {
-    $labels = array(
-        'name'              => _x( 'Setores', 'taxonomy general name', 'jobs-7teengames' ),
-        'singular_name'     => _x( 'Setor', 'taxonomy singular name', 'jobs-7teengames' ),
-        'search_items'      => __( 'Buscar Setores', 'jobs-7teengames' ),
-        'all_items'         => __( 'Todos os Setores', 'jobs-7teengames' ),
-        'parent_item'       => __( 'Setor Pai', 'jobs-7teengames' ),
-        'parent_item_colon' => __( 'Setor Pai:', 'jobs-7teengames' ),
-        'edit_item'         => __( 'Editar Setor', 'jobs-7teengames' ),
-        'update_item'       => __( 'Atualizar Setor', 'jobs-7teengames' ),
-        'add_new_item'      => __( 'Adicionar Novo Setor', 'jobs-7teengames' ),
-        'new_item_name'     => __( 'Novo Nome de Setor', 'jobs-7teengames' ),
-        'menu_name'         => __( 'Setor', 'jobs-7teengames' ),
-    );
-
-    $args = array(
-        'hierarchical'      => true,
-        'labels'            => $labels,
-        'show_ui'           => true,
-        'show_admin_column' => true,
-        'query_var'         => true,
-        'rewrite'           => array( 'slug' => 'setor' ),
-    );
-
-    register_taxonomy( 'setor', array( 'vagas' ), $args );
-}
-
-add_action( 'init', 'jobs_7teengames_register_taxonomy' );
 
 function jobs_7teengames_display_job_title( $content ) {
     if ( is_singular( 'vagas' ) ) {
@@ -606,6 +578,7 @@ function jobs_7teengames_list_vagas_template($no_vacancy_message, $see_details_t
 
             $vaga_title = get_the_title();
 
+            // Verificação de categorias e exibição da mensagem de acordo com o idioma
             $categorias = get_the_terms( get_the_ID(), 'category' );
             $categoria_lista = '';
 
@@ -622,7 +595,20 @@ function jobs_7teengames_list_vagas_template($no_vacancy_message, $see_details_t
                 }
                 $categoria_lista = implode( ', ', $categoria_nomes );
             } else {
-                $categoria_lista = 'Nenhuma categoria disponível';
+                // Aqui está o código que adiciona a verificação do idioma
+                if (function_exists('pll_current_language')) {
+                    $idioma_atual = pll_current_language();
+                    if ($idioma_atual == 'en') {
+                        $categoria_lista = 'No categories available';
+                    } elseif ($idioma_atual == 'es') {
+                        $categoria_lista = 'No hay categorías disponibles';
+                    } else {
+                        $categoria_lista = 'Nenhuma categoria disponível';
+                    }
+                } else {
+                    // Fallback para português caso o Polylang não esteja ativo
+                    $categoria_lista = 'Nenhuma categoria disponível';
+                }
             }
 
             $vaga_link = get_permalink();
