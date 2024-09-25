@@ -185,7 +185,7 @@ function jobs_7teengames_handle_form_submission() {
             );
 
             if ( $inserted ) {
-                $admin_email = get_option( 'jobs_7teengames_email', 'paulobaronedev@gmail.com' );
+                $admin_email = get_option( 'jobs_7teengames_email', get_option('admin_email') );
                 $subject     = 'Nova candidatura para a vaga: ' . get_the_title();
                 $body        = "Nome: $name\nEmail: $email\nTelefone: $phone\n\nO currículo foi anexado como PDF:\n$cv_url\n\n";
                 $body       .= "Respostas às perguntas:\n" . $custom_answers;
