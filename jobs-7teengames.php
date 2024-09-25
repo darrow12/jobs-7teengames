@@ -60,7 +60,6 @@ function jobs_7teengames_register_post_type() {
         'exclude_from_search'   => false,
         'publicly_queryable'    => true,
         'capability_type'       => 'post',
-        'rewrite'               => array( 'slug' => 'jobs', 'with_front' => false ),
     );
     register_post_type( 'vagas', $args );
 }
