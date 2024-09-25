@@ -510,125 +510,79 @@ function jobs_7teengames_enqueue_styles_and_scripts() {
 }
 add_action( 'wp_enqueue_scripts', 'jobs_7teengames_enqueue_styles_and_scripts' );
 
-function jobs_7teengames_list_vagas_pt_shortcode() {
+add_shortcode('listar_vagas_pt', function() {
     return jobs_7teengames_list_vagas_template('Nenhuma vaga encontrada no momento.', 'Ver detalhes');
-}
-add_shortcode( 'listar_vagas_pt', 'jobs_7teengames_list_vagas_pt_shortcode' );
+});
 
-function jobs_7teengames_list_vagas_en_shortcode() {
+add_shortcode('listar_vagas_en', function() {
     return jobs_7teengames_list_vagas_template('No jobs available at the moment.', 'See details');
-}
-add_shortcode( 'listar_vagas_en', 'jobs_7teengames_list_vagas_en_shortcode' );
+});
 
-function jobs_7teengames_list_vagas_es_shortcode() {
+add_shortcode('listar_vagas_es', function() {
     return jobs_7teengames_list_vagas_template('No hay vacantes disponibles en este momento.', 'Ver detalles');
-}
-add_shortcode( 'listar_vagas_es', 'jobs_7teengames_list_vagas_es_shortcode' );
+});
 
 function jobs_7teengames_list_vagas_template($no_vacancy_message, $see_details_text) {
+    // Campo de pesquisa (input) para buscar vagas
+    $output = '<div class="input-container" style="display: flex; justify-content: center; align-items: center; width: 100%; padding: 16px;">';
+    $output .= '<input type="text" id="vaga_search_input" placeholder="Pesquisar vagas..." style="padding: 10px; width: 100%; max-width: 600px; box-sizing: border-box; margin-bottom: 20px; border-radius: 12px; border-radius: 12px;">';
+    $output .= '</div>';
+
+    // Argumentos da query para obter todas as vagas
     $args = array(
         'post_type' => 'vagas',
-        'posts_per_page' => -1,
+        'posts_per_page' => -1
     );
 
-    $vagas = new WP_Query( $args );
+    $vagas = new WP_Query($args);
 
-    if ( $vagas->have_posts() ) {
-        $output = '<style>
-            .vaga-item {
-                border: 1px solid #242424;
-                padding: 15px;
-                margin-bottom: 10px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                flex-wrap: wrap;
-                border-radius: 18px;
-            }
-            .vaga-detalhes {
-                flex-grow: 1;
-            }
-            .vaga-botao {
-                flex-shrink: 0;
-                margin-top: 10px;
-            }
-            
-            @media (max-width: 768px) {
-                .vaga-item {
-                    flex-direction: column;
-                    align-items: flex-start;
-                }
-                .vaga-botao {
-                    width: 100%;
-                    text-align: center;
-                }
-                .vaga-botao a {
-                    display: inline-block;
-                    width: 100%;
-                    text-align: center;
-                }
-            }
-        </style>';
+    if ($vagas->have_posts()) {
+        // Contêiner da lista de vagas
+        $output .= '<div id="vaga-list">';
 
-        $output .= '<div class="vagas-listagem">';
-
-        while ( $vagas->have_posts() ) {
+        // Loop pelas vagas
+        while ($vagas->have_posts()) {
             $vagas->the_post();
-
             $vaga_title = get_the_title();
-
-            // Verificação de categorias e exibição da mensagem de acordo com o idioma
-            $categorias = get_the_terms( get_the_ID(), 'category' );
-            $categoria_lista = '';
-
-            if ( $categorias && ! is_wp_error( $categorias ) ) {
-                $categoria_nomes = array();
-                foreach ( $categorias as $categoria ) {
-                    if ( function_exists( 'pll_get_term' ) || function_exists( 'icl_object_id' ) ) {
-                        $categoria_id = (function_exists('pll_get_term')) ? pll_get_term( $categoria->term_id ) : icl_object_id( $categoria->term_id, 'category', true );
-                        $categoria_traduzida = get_term( $categoria_id )->name;
-                        $categoria_nomes[] = $categoria_traduzida;
-                    } else {
-                        $categoria_nomes[] = $categoria->name;
-                    }
-                }
-                $categoria_lista = implode( ', ', $categoria_nomes );
-            } else {
-                // Aqui está o código que adiciona a verificação do idioma
-                if (function_exists('pll_current_language')) {
-                    $idioma_atual = pll_current_language();
-                    if ($idioma_atual == 'en') {
-                        $categoria_lista = 'No categories available';
-                    } elseif ($idioma_atual == 'es') {
-                        $categoria_lista = 'No hay categorías disponibles';
-                    } else {
-                        $categoria_lista = 'Nenhuma categoria disponível';
-                    }
-                } else {
-                    // Fallback para português caso o Polylang não esteja ativo
-                    $categoria_lista = 'Nenhuma categoria disponível';
-                }
-            }
-
             $vaga_link = get_permalink();
 
+            // Cada vaga será um item que pode ser filtrado pelo título
             $output .= '<div class="vaga-item">';
             $output .= '<div class="vaga-detalhes">';
-            $output .= '<h2 style="color: #007CC6;">' . esc_html( $vaga_title ) . '</h2>';
-            $output .= '<p>' . esc_html( $categoria_lista ) . '</p>';
+            $output .= '<h2 class="vaga-title" style="color: #007CC6;">' . esc_html($vaga_title) . '</h2>';
             $output .= '</div>';
             $output .= '<div class="vaga-botao">';
-            $output .= '<a href="' . esc_url( $vaga_link ) . '" style="padding: 10px 20px; background-color: #007CC6; color: white; text-decoration: none; border-radius: 5px;">' . esc_html( $see_details_text ) . '</a>';
+            $output .= '<a href="' . esc_url($vaga_link) . '" style="padding: 10px 20px; background-color: #007CC6; color: white; text-decoration: none; border-radius: 5px;">' . esc_html($see_details_text) . '</a>';
             $output .= '</div>';
             $output .= '</div>';
         }
 
-        wp_reset_postdata();
-
         $output .= '</div>';
     } else {
-        $output = '<p>' . esc_html( $no_vacancy_message ) . '</p>';
+        $output .= '<p>' . esc_html($no_vacancy_message) . '</p>';
     }
+
+    wp_reset_postdata();
+
+    // Adicionando o JavaScript para filtrar as vagas em tempo real
+    $output .= '<script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function() {
+            var input = document.getElementById("vaga_search_input");
+            input.addEventListener("input", function() {
+                var filter = input.value.toLowerCase();
+                var vagas = document.querySelectorAll(".vaga-item");
+
+                vagas.forEach(function(vaga) {
+                    var title = vaga.querySelector(".vaga-title").textContent.toLowerCase();
+                    if (title.indexOf(filter) > -1) {
+                        vaga.style.display = "";
+                    } else {
+                        vaga.style.display = "none";
+                    }
+                });
+            });
+        });
+    </script>';
 
     return $output;
 }
