@@ -511,21 +511,21 @@ function jobs_7teengames_enqueue_styles_and_scripts() {
 add_action( 'wp_enqueue_scripts', 'jobs_7teengames_enqueue_styles_and_scripts' );
 
 add_shortcode('listar_vagas_pt', function() {
-    return jobs_7teengames_list_vagas_template('Nenhuma vaga encontrada no momento.', 'Ver detalhes');
+    return jobs_7teengames_list_vagas_template('Nenhuma vaga encontrada no momento.', 'Ver detalhes', 'Categorias:', 'Sem categoria', 'Pesquisar vagas...');
 });
 
 add_shortcode('listar_vagas_en', function() {
-    return jobs_7teengames_list_vagas_template('No jobs available at the moment.', 'See details');
+    return jobs_7teengames_list_vagas_template('No jobs available at the moment.', 'See details', 'Categories:', 'Uncategorized', 'Search for jobs...');
 });
 
 add_shortcode('listar_vagas_es', function() {
-    return jobs_7teengames_list_vagas_template('No hay vacantes disponibles en este momento.', 'Ver detalles');
+    return jobs_7teengames_list_vagas_template('No hay vacantes disponibles en este momento.', 'Ver detalles', 'Categorías:', 'Sin categoría', 'Búsqueda de vacantes...');
 });
 
-function jobs_7teengames_list_vagas_template($no_vacancy_message, $see_details_text) {
+function jobs_7teengames_list_vagas_template($no_vacancy_message, $see_details_text, $categories_label, $no_category_label, $vaga_search) {
     // Campo de pesquisa (input) para buscar vagas
     $output = '<div class="input-container" style="display: flex; justify-content: center; align-items: center; width: 100%; padding: 16px;">';
-    $output .= '<input type="text" id="vaga_search_input" placeholder="Pesquisar vagas..." style="padding: 10px; width: 100%; max-width: 600px; box-sizing: border-box; margin-bottom: 20px; border-radius: 12px; border-radius: 12px;">';
+    $output .= '<input type="text" id="vaga_search_input" placeholder="' . esc_html($vaga_search) . '" style="padding: 10px; width: 100%; max-width: 600px; box-sizing: border-box; margin-bottom: 20px; border-radius: 12px; border-radius: 12px;">';
     $output .= '</div>';
 
     // Argumentos da query para obter todas as vagas
@@ -546,10 +546,24 @@ function jobs_7teengames_list_vagas_template($no_vacancy_message, $see_details_t
             $vaga_title = get_the_title();
             $vaga_link = get_permalink();
 
+            // Obter categorias da vaga diretamente
+            $vaga_categorias = get_the_terms(get_the_ID(), 'category');
+            $categoria_list = '';
+            if (!empty($vaga_categorias) && !is_wp_error($vaga_categorias)) {
+                foreach ($vaga_categorias as $categoria) {
+                    $categoria_list .= '<span class="vaga-categoria">' . esc_html($categoria->name) . '</span>, ';
+                }
+                // Remover a última vírgula
+                $categoria_list = rtrim($categoria_list, ', ');
+            } else {
+                $categoria_list = $no_category_label;
+            }
+
             // Cada vaga será um item que pode ser filtrado pelo título
             $output .= '<div class="vaga-item">';
             $output .= '<div class="vaga-detalhes">';
             $output .= '<h2 class="vaga-title" style="color: #007CC6;">' . esc_html($vaga_title) . '</h2>';
+            $output .= '<p class="vaga-categorias">' . esc_html($categories_label) . ' ' . $categoria_list . '</p>'; // Exibir categorias aqui
             $output .= '</div>';
             $output .= '<div class="vaga-botao">';
             $output .= '<a href="' . esc_url($vaga_link) . '" style="padding: 10px 20px; background-color: #007CC6; color: white; text-decoration: none; border-radius: 5px;">' . esc_html($see_details_text) . '</a>';
